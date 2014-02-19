@@ -294,9 +294,10 @@
 
       target.hasBorders = hasBorders;
       target.transparentCorners = transparentCorners;
+      var tolerance = target.targetFindTolerance !== undefined ? target.targetFindTolerance : this.targetFindTolerance;
 
       var isTransparent = fabric.util.isTransparent(
-        this.contextCache, x, y, this.targetFindTolerance);
+        this.contextCache, x, y, tolerance);
 
       this.clearContext(this.contextCache);
 
