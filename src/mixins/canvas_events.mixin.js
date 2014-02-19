@@ -11,18 +11,17 @@
     'nw-resize'
   ],
   cursorOffset = {
-    'mt': 0, // n
-    'tr': 1, // ne
-    'mr': 2, // e
-    'br': 3, // se
-    'mb': 4, // s
-    'bl': 5, // sw
-    'ml': 6, // w
-    'tl': 7 // nw
+    mt: 0, // n
+    tr: 1, // ne
+    mr: 2, // e
+    br: 3, // se
+    mb: 4, // s
+    bl: 5, // sw
+    ml: 6, // w
+    tl: 7 // nw
   },
   addListener = fabric.util.addListener,
-  removeListener = fabric.util.removeListener,
-  getPointer = fabric.util.getPointer;
+  removeListener = fabric.util.removeListener;
 
   fabric.util.object.extend(fabric.Canvas.prototype, /** @lends fabric.Canvas.prototype */ {
 
@@ -264,8 +263,8 @@
      */
     _finalizeCurrentTransform: function() {
 
-      var transform = this._currentTransform;
-      var target = transform.target;
+      var transform = this._currentTransform,
+          target = transform.target;
 
       if (target._scaling) {
         target._scaling = false;
@@ -404,7 +403,7 @@
       this.stateful && target.saveState();
 
       // determine if it's a drag or rotate case
-      if ((corner = target._findTargetCorner(e, this._offset))) {
+      if ((corner = target._findTargetCorner(this.getPointer(e)))) {
         this.onBeforeScaleRotate(target);
       }
 
@@ -495,10 +494,10 @@
 
       // We initially clicked in an empty area, so we draw a box for multiple selection
       if (groupSelector) {
-        pointer = getPointer(e, this.upperCanvasEl);
+        pointer = this.getPointer(e);
 
-        groupSelector.left = pointer.x - this._offset.left - groupSelector.ex;
-        groupSelector.top = pointer.y - this._offset.top - groupSelector.ey;
+        groupSelector.left = pointer.x - groupSelector.ex;
+        groupSelector.top = pointer.y - groupSelector.ey;
 
         this.renderTop();
       }
@@ -527,7 +526,7 @@
      */
     _transformObject: function(e) {
 
-      var pointer = getPointer(e, this.upperCanvasEl),
+      var pointer = this.getPointer(e),
           transform = this._currentTransform;
 
       transform.reset = false,
@@ -575,7 +574,7 @@
      * @private
      */
     _fire: function(eventName, target, e) {
-      this.fire('object:' + eventName, { target: target, e: e});
+      this.fire('object:' + eventName, { target: target, e: e });
       target.fire(eventName, { e: e });
     },
 
@@ -632,11 +631,11 @@
         return false;
       }
       else {
-        var activeGroup = this.getActiveGroup();
-        // only show proper corner when group selection is not active
-        var corner = target._findTargetCorner
+        var activeGroup = this.getActiveGroup(),
+            // only show proper corner when group selection is not active
+            corner = target._findTargetCorner
                       && (!activeGroup || !activeGroup.contains(target))
-                      && target._findTargetCorner(e, this._offset);
+                      && target._findTargetCorner(this.getPointer(e));
 
         if (!corner) {
           style.cursor = target.hoverCursor || this.hoverCursor;

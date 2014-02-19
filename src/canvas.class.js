@@ -205,10 +205,10 @@
       var t = this._currentTransform;
 
       t.target.set({
-        'scaleX': t.original.scaleX,
-        'scaleY': t.original.scaleY,
-        'left': t.original.left,
-        'top': t.original.top
+        scaleX: t.original.scaleX,
+        scaleY: t.original.scaleY,
+        left: t.original.left,
+        top: t.original.top
       });
 
       if (this._shouldCenterTransform(e, t.target)) {
@@ -255,7 +255,7 @@
 
       // http://www.geog.ubc.ca/courses/klink/gis.notes/ncgia/u32.html
       // http://idav.ucdavis.edu/~okreylos/TAship/Spring2000/PointInPolygon.html
-      return (target.containsPoint(xy) || target._findTargetCorner(e, this._offset));
+      return (target.containsPoint(xy) || target._findTargetCorner(pointer));
     },
 
     /**
@@ -264,13 +264,11 @@
     _normalizePointer: function (object, pointer) {
       var activeGroup = this.getActiveGroup(),
           x = pointer.x,
-          y = pointer.y;
-
-      var isObjectInGroup = (
-        activeGroup &&
-        object.type !== 'group' &&
-        activeGroup.contains(object)
-      );
+          y = pointer.y,
+          isObjectInGroup = (
+            activeGroup &&
+            object.type !== 'group' &&
+            activeGroup.contains(object));
 
       if (isObjectInGroup) {
         x -= activeGroup.left;
@@ -404,8 +402,8 @@
     _setupCurrentTransform: function (e, target) {
       if (!target) return;
 
-      var corner = target._findTargetCorner(e, this._offset),
-          pointer = getPointer(e, target.canvas.upperCanvasEl),
+      var pointer = this.getPointer(e),
+          corner = target._findTargetCorner(pointer),
           action = this._getActionFromCorner(target, corner),
           origin = this._getOriginFromCorner(target, corner);
 
@@ -467,7 +465,6 @@
      */
     _scaleObject: function (x, y, by) {
       var t = this._currentTransform,
-          offset = this._offset,
           target = t.target,
           lockScalingX = target.get('lockScalingX'),
           lockScalingY = target.get('lockScalingY');
@@ -475,8 +472,8 @@
       if (lockScalingX && lockScalingY) return;
 
       // Get the constraint point
-      var constraintPosition = target.translateToOriginPoint(target.getCenterPoint(), t.originX, t.originY);
-      var localMouse = target.toLocalPoint(new fabric.Point(x - offset.left, y - offset.top), t.originX, t.originY);
+      var constraintPosition = target.translateToOriginPoint(target.getCenterPoint(), t.originX, t.originY),
+          localMouse = target.toLocalPoint(new fabric.Point(x, y), t.originX, t.originY);
 
       this._setLocalMouse(localMouse, t);
 
@@ -523,9 +520,8 @@
      */
     _scaleObjectEqually: function(localMouse, target, transform) {
 
-      var dist = localMouse.y + localMouse.x;
-
-      var lastDist = (target.height + (target.strokeWidth)) * transform.original.scaleY +
+      var dist = localMouse.y + localMouse.x,
+          lastDist = (target.height + (target.strokeWidth)) * transform.original.scaleY +
                      (target.width + (target.strokeWidth)) * transform.original.scaleX;
 
       // We use transform.scaleX/Y instead of target.scaleX/Y
@@ -622,13 +618,12 @@
      */
     _rotateObject: function (x, y) {
 
-      var t = this._currentTransform,
-          o = this._offset;
+      var t = this._currentTransform;
 
       if (t.target.get('lockRotation')) return;
 
-      var lastAngle = atan2(t.ey - t.top - o.top, t.ex - t.left - o.left),
-          curAngle = atan2(y - t.top - o.top, x - t.left - o.left),
+      var lastAngle = atan2(t.ey - t.top, t.ex - t.left),
+          curAngle = atan2(y - t.top, x - t.left),
           angle = radiansToDegrees(curAngle - lastAngle + t.theta);
 
       // normalize angle to positive value
@@ -681,15 +676,15 @@
       // selection border
       if (this.selectionDashArray.length > 1) {
 
-        var px = groupSelector.ex + STROKE_OFFSET - ((left > 0) ? 0: aleft);
-        var py = groupSelector.ey + STROKE_OFFSET - ((top > 0) ? 0: atop);
+        var px = groupSelector.ex + STROKE_OFFSET - ((left > 0) ? 0: aleft),
+            py = groupSelector.ey + STROKE_OFFSET - ((top > 0) ? 0: atop);
 
         ctx.beginPath();
 
-        fabric.util.drawDashedLine(ctx, px, py, px+aleft, py, this.selectionDashArray);
-        fabric.util.drawDashedLine(ctx, px, py+atop-1, px+aleft, py+atop-1, this.selectionDashArray);
-        fabric.util.drawDashedLine(ctx, px, py, px, py+atop, this.selectionDashArray);
-        fabric.util.drawDashedLine(ctx, px+aleft-1, py, px+aleft-1, py+atop, this.selectionDashArray);
+        fabric.util.drawDashedLine(ctx, px, py, px + aleft, py, this.selectionDashArray);
+        fabric.util.drawDashedLine(ctx, px, py + atop - 1, px + aleft, py + atop - 1, this.selectionDashArray);
+        fabric.util.drawDashedLine(ctx, px, py, px, py + atop, this.selectionDashArray);
+        fabric.util.drawDashedLine(ctx, px + aleft - 1, py, px + aleft - 1, py + atop, this.selectionDashArray);
 
         ctx.closePath();
         ctx.stroke();
@@ -713,7 +708,7 @@
         this.lastRenderedObjectWithControlsAboveOverlay &&
         this.lastRenderedObjectWithControlsAboveOverlay.visible &&
         this.containsPoint(e, this.lastRenderedObjectWithControlsAboveOverlay) &&
-        this.lastRenderedObjectWithControlsAboveOverlay._findTargetCorner(e, this._offset));
+        this.lastRenderedObjectWithControlsAboveOverlay._findTargetCorner(this.getPointer(e)));
     },
 
     /**
@@ -760,7 +755,7 @@
         this._hoveredTarget = null;
       }
     },
-    
+
     /**
     * @private
     */
@@ -814,6 +809,7 @@
         if (!isTransparent) {
           target = possibleTargets[j];
           this.relatedTarget = target;
+
           break;
         }
       }
@@ -827,10 +823,23 @@
      * @return {Object} object with "x" and "y" number values
      */
     getPointer: function (e) {
-      var pointer = getPointer(e, this.upperCanvasEl);
+      var pointer = getPointer(e, this.upperCanvasEl),
+          bounds = this.upperCanvasEl.getBoundingClientRect(),
+          cssScale;
+
+      if (bounds.width === 0 || bounds.height === 0) {
+        // If bounds are not available (i.e. not visible), do not apply scale.
+        cssScale = { width: 1, height: 1 };
+      }
+      else {
+        cssScale = {
+          width: this.upperCanvasEl.width / bounds.width,
+          height: this.upperCanvasEl.height / bounds.height,
+        };
+      }
       return {
-        x: pointer.x - this._offset.left,
-        y: pointer.y - this._offset.top
+        x: (pointer.x - this._offset.left) * cssScale.width,
+        y: (pointer.y - this._offset.top) * cssScale.height
       };
     },
 

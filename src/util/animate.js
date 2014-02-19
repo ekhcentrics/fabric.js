@@ -22,7 +22,7 @@
           finish = start + duration, time,
           onChange = options.onChange || function() { },
           abort = options.abort || function() { return false; },
-          easing = options.easing || function(t, b, c, d) {return -c * Math.cos(t/d * (Math.PI/2)) + c + b;},
+          easing = options.easing || function(t, b, c, d) {return -c * Math.cos(t / d * (Math.PI / 2)) + c + b;},
           startValue = 'startValue' in options ? options.startValue : 0,
           endValue = 'endValue' in options ? options.endValue : 100,
           byValue = options.byValue || endValue - startValue;
@@ -62,9 +62,9 @@
     * @param {Function} callback Callback to invoke
     * @param {DOMElement} element optional Element to associate with animation
     */
-  var requestAnimFrame = function() {
+  function requestAnimFrame() {
     return _requestAnimFrame.apply(fabric.window, arguments);
-  };
+  }
 
   fabric.util.animate = animate;
   fabric.util.requestAnimFrame = requestAnimFrame;
