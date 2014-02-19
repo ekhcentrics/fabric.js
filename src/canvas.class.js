@@ -787,22 +787,35 @@
     _searchPossibleTargets: function(e) {
 
       // Cache all targets where their bounding box contains point.
-      var target,
+      var possibleTargets = [],
+          target,
           pointer = this.getPointer(e);
-          
-      if (this._activeObject && this._checkTarget(e, this._activeObject, pointer)) {
-        this.relatedTarget = this._activeObject;
-        return this._activeObject;
+
+      for (var i = this._objects.length; i--; ) {
+        if (this._objects[i] &&
+            this._objects[i].visible &&
+            this._objects[i].evented &&
+            this.containsPoint(e, this._objects[i])) {
+
+          if (this.perPixelTargetFind || this._objects[i].perPixelTargetFind) {
+            possibleTargets[possibleTargets.length] = this._objects[i];
+          }
+          else {
+            target = this._objects[i];
+            this.relatedTarget = target;
+            break;
+          }
+        }
       }
 
-      var i = this._objects.length;
-      
-      while(i--) {
-         if (this._checkTarget(e, this._objects[i], pointer)){
-           this.relatedTarget = this._objects[i];
-           target = this._objects[i];
-           break;
-         }
+      for (var j = 0, len = possibleTargets.length; j < len; j++) {
+        pointer = this.getPointer(e);
+        var isTransparent = this.isTargetTransparent(possibleTargets[j], pointer.x, pointer.y);
+        if (!isTransparent) {
+          target = possibleTargets[j];
+          this.relatedTarget = target;
+          break;
+        }
       }
 
       return target;
