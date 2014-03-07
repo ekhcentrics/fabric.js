@@ -1,4 +1,4 @@
-/* build: `node build.js modules=ALL exclude=animation,serialization,parser,easing,node,freedrawing,cufon minifier=uglifyjs` */
+/* build: `node build.js modules=ALL exclude=serialization,parser,easing,node,freedrawing,cufon minifier=uglifyjs` */
 /*! Fabric.js Copyright 2008-2013, Printio (Juriy Zaytsev, Maxim Chernyak) */
 
 var fabric = fabric || { version: "1.4.4" };
@@ -48,7 +48,7 @@ fabric.SHARED_ATTRIBUTES = [
 
 /*
     json2.js
-    2011-10-19
+    2014-02-04
 
     Public Domain.
 
@@ -207,8 +207,7 @@ fabric.SHARED_ATTRIBUTES = [
 // Create a JSON object only if one does not already exist. We create the
 // methods in a closure to avoid creating global variables.
 
-var JSON;
-if (!JSON) {
+if (typeof JSON !== 'object') {
     JSON = {};
 }
 
@@ -222,8 +221,7 @@ if (!JSON) {
 
     if (typeof Date.prototype.toJSON !== 'function') {
 
-        /** @ignore */
-        Date.prototype.toJSON = function (key) {
+        Date.prototype.toJSON = function () {
 
             return isFinite(this.valueOf())
                 ? this.getUTCFullYear()     + '-' +
@@ -237,25 +235,16 @@ if (!JSON) {
 
         String.prototype.toJSON      =
             Number.prototype.toJSON  =
-            /** @ignore */
-            Boolean.prototype.toJSON = function (key) {
+            Boolean.prototype.toJSON = function () {
                 return this.valueOf();
             };
     }
 
-    var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
-        escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+    var cx,
+        escapable,
         gap,
         indent,
-        meta = {    // table of character substitutions
-            '\b': '\\b',
-            '\t': '\\t',
-            '\n': '\\n',
-            '\f': '\\f',
-            '\r': '\\r',
-            '"' : '\\"',
-            '\\': '\\\\'
-        },
+        meta,
         rep;
 
 
@@ -407,7 +396,16 @@ if (!JSON) {
 // If the JSON object does not yet have a stringify method, give it one.
 
     if (typeof JSON.stringify !== 'function') {
-        /** @ignore */
+        escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
+        meta = {    // table of character substitutions
+            '\b': '\\b',
+            '\t': '\\t',
+            '\n': '\\n',
+            '\f': '\\f',
+            '\r': '\\r',
+            '"' : '\\"',
+            '\\': '\\\\'
+        };
         JSON.stringify = function (value, replacer, space) {
 
 // The stringify method takes a value and an optional replacer, and an optional
@@ -455,7 +453,7 @@ if (!JSON) {
 // If the JSON object does not yet have a parse method, give it one.
 
     if (typeof JSON.parse !== 'function') {
-        /** @ignore */
+        cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
         JSON.parse = function (text, reviver) {
 
 // The parse method takes a text and an optional reviver function, and returns
@@ -537,6 +535,7 @@ if (!JSON) {
         };
     }
 }());
+
 
 /*
 	----------------------------------------------------
@@ -2759,7 +2758,9 @@ fabric.Collection = {
      * @return {Object} Object for given namespace (default fabric)
      */
     resolveNamespace: function(namespace) {
-      if (!namespace) return fabric;
+      if (!namespace) {
+        return fabric;
+      }
 
       var parts = namespace.split('.'),
           len = parts.length,
@@ -3160,10 +3161,14 @@ fabric.Collection = {
 
         sfactorSq = 1 / d - 0.25;
 
-    if (sfactorSq < 0) sfactorSq = 0;
+    if (sfactorSq < 0) {
+      sfactorSq = 0;
+    }
 
     var sfactor = Math.sqrt(sfactorSq);
-    if (sweep === large) sfactor = -sfactor;
+    if (sweep === large) {
+      sfactor = -sfactor;
+    }
 
     var xc = 0.5 * (coords.x0 + coords.x1) - sfactor * (coords.y1 - coords.y0),
         yc = 0.5 * (coords.y0 + coords.y1) + sfactor * (coords.x1 - coords.x0),
@@ -3499,7 +3504,7 @@ fabric.Collection = {
    * @private
    */
   function find(array, byProperty, condition) {
-    if (!array || array.length === 0) return undefined;
+    if (!array || array.length === 0) return;
 
     var i = array.length - 1,
         result = byProperty ? array[i][byProperty] : array[i];
@@ -4201,8 +4206,8 @@ fabric.Collection = {
         top = 0;
       }
       else if (element === fabric.document) {
-        left += body.scrollLeft || docElement.scrollLeft || 0;
-        top += body.scrollTop ||  docElement.scrollTop || 0;
+        left = body.scrollLeft || docElement.scrollLeft || 0;
+        top = body.scrollTop ||  docElement.scrollTop || 0;
       }
       else {
         left += element.scrollLeft || 0;
@@ -4470,6 +4475,80 @@ if (typeof console !== 'undefined') {
     }
   });
 }
+
+
+(function() {
+
+   /**
+    * Changes value from one to another within certain period of time, invoking callbacks as value is being changed.
+    * @memberOf fabric.util
+    * @param {Object} [options] Animation options
+    * @param {Function} [options.onChange] Callback; invoked on every value change
+    * @param {Function} [options.onComplete] Callback; invoked when value change is completed
+    * @param {Number} [options.startValue=0] Starting value
+    * @param {Number} [options.endValue=100] Ending value
+    * @param {Number} [options.byValue=100] Value to modify the property by
+    * @param {Function} [options.easing] Easing function
+    * @param {Number} [options.duration=500] Duration of change (in ms)
+    */
+  function animate(options) {
+
+    requestAnimFrame(function(timestamp) {
+      options || (options = { });
+
+      var start = timestamp || +new Date(),
+          duration = options.duration || 500,
+          finish = start + duration, time,
+          onChange = options.onChange || function() { },
+          abort = options.abort || function() { return false; },
+          easing = options.easing || function(t, b, c, d) {return -c * Math.cos(t / d * (Math.PI / 2)) + c + b;},
+          startValue = 'startValue' in options ? options.startValue : 0,
+          endValue = 'endValue' in options ? options.endValue : 100,
+          byValue = options.byValue || endValue - startValue;
+
+      options.onStart && options.onStart();
+
+      (function tick(ticktime) {
+        time = ticktime || +new Date();
+        var currentTime = time > finish ? duration : (time - start);
+        if (abort()) {
+          options.onComplete && options.onComplete();
+          return;
+        }
+        onChange(easing(currentTime, startValue, byValue, duration));
+        if (time > finish) {
+          options.onComplete && options.onComplete();
+          return;
+        }
+        requestAnimFrame(tick);
+      })(start);
+    });
+
+  }
+
+  var _requestAnimFrame = fabric.window.requestAnimationFrame       ||
+                          fabric.window.webkitRequestAnimationFrame ||
+                          fabric.window.mozRequestAnimationFrame    ||
+                          fabric.window.oRequestAnimationFrame      ||
+                          fabric.window.msRequestAnimationFrame     ||
+                          function(callback) {
+                            fabric.window.setTimeout(callback, 1000 / 60);
+                          };
+  /**
+    * requestAnimationFrame polyfill based on http://paulirish.com/2011/requestanimationframe-for-smart-animating/
+    * In order to get a precise start time, `requestAnimFrame` should be called as an entry into the method
+    * @memberOf fabric.util
+    * @param {Function} callback Callback to invoke
+    * @param {DOMElement} element optional Element to associate with animation
+    */
+  function requestAnimFrame() {
+    return _requestAnimFrame.apply(fabric.window, arguments);
+  }
+
+  fabric.util.animate = animate;
+  fabric.util.requestAnimFrame = requestAnimFrame;
+
+})();
 
 
 (function(global) {
@@ -5183,7 +5262,7 @@ if (typeof console !== 'undefined') {
    * @field
    * @memberOf fabric.Color
    */
-  fabric.Color.reRGBa = /^rgba?\(\s*(\d{1,3}\%?)\s*,\s*(\d{1,3}\%?)\s*,\s*(\d{1,3}\%?)\s*(?:\s*,\s*(\d+(?:\.\d+)?)\s*)?\)$/;
+  fabric.Color.reRGBa = /^rgba?\(\s*(\d{1,3}(?:\.\d+)?\%?)\s*,\s*(\d{1,3}(?:\.\d+)?\%?)\s*,\s*(\d{1,3}(?:\.\d+)?\%?)\s*(?:\s*,\s*(\d+(?:\.\d+)?)\s*)?\)$/;
 
   /**
    * Regex matching color in HSL or HSLA formats (ex: hsl(200, 80%, 10%), hsla(300, 50%, 80%, 0.5), hsla( 300 , 50% , 80% , 0.5 ))
@@ -5236,11 +5315,21 @@ if (typeof console !== 'undefined') {
    * @return {Number}
    */
   function hue2rgb(p, q, t){
-    if (t < 0) t += 1;
-    if (t > 1) t -= 1;
-    if (t < 1/6) return p + (q - p) * 6 * t;
-    if (t < 1/2) return q;
-    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    if (t < 0) {
+      t += 1;
+    }
+    if (t > 1) {
+      t -= 1;
+    }
+    if (t < 1/6) {
+      return p + (q - p) * 6 * t;
+    }
+    if (t < 1/2) {
+      return q;
+    }
+    if (t < 2/3) {
+      return p + (q - p) * (2/3 - t) * 6;
+    }
     return p;
   }
 
@@ -5772,11 +5861,18 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
    * @return {CanvasPattern}
    */
   toLive: function(ctx) {
-    var source = typeof this.source === 'function' ? this.source() : this.source;
+    var source = typeof this.source === 'function'
+      ? this.source()
+      : this.source;
+
     // if an image
     if (typeof source.src !== 'undefined') {
-      if (!source.complete) return '';
-      if (source.naturalWidth === 0 || source.naturalHeight === 0) return '';
+      if (!source.complete) {
+        return '';
+      }
+      if (source.naturalWidth === 0 || source.naturalHeight === 0) {
+        return '';
+      }
     }
     return ctx.createPattern(source, this.repeat);
   }
@@ -6853,6 +6949,11 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
           o.set('active', true);
         });
       }
+
+      if (this._currentTransform) {
+        this._currentTransform.target = this.getActiveGroup();
+      }
+
       return data;
     },
 
@@ -8139,7 +8240,7 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
       else {
         cssScale = {
           width: this.upperCanvasEl.width / bounds.width,
-          height: this.upperCanvasEl.height / bounds.height,
+          height: this.upperCanvasEl.height / bounds.height
         };
       }
       return {
@@ -8452,17 +8553,7 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
 
 (function(){
 
-  var cursorMap = [
-    'n-resize',
-    'ne-resize',
-    'e-resize',
-    'se-resize',
-    's-resize',
-    'sw-resize',
-    'w-resize',
-    'nw-resize'
-  ],
-  cursorOffset = {
+  var cursorOffset = {
     mt: 0, // n
     tr: 1, // ne
     mr: 2, // e
@@ -8476,6 +8567,21 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
   removeListener = fabric.util.removeListener;
 
   fabric.util.object.extend(fabric.Canvas.prototype, /** @lends fabric.Canvas.prototype */ {
+
+    /**
+     * Map of cursor style values for each of the object controls
+     * @private
+     */
+    cursorMap: [
+      'n-resize',
+      'ne-resize',
+      'e-resize',
+      'se-resize',
+      's-resize',
+      'sw-resize',
+      'w-resize',
+      'nw-resize'
+    ],
 
     /**
      * Adds mouse listeners to canvas
@@ -9130,7 +9236,7 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
       // normalize n to be from 0 to 7
       n %= 8;
 
-      return cursorMap[n];
+      return this.cursorMap[n];
     }
   });
 })();
@@ -10589,6 +10695,7 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
       if (this.width === 0 || this.height === 0 || !this.visible) return;
 
       ctx.save();
+
       //setup fill rule for current object
       this._setupFillRule(ctx);
 
@@ -10607,14 +10714,14 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
       this._render(ctx, noTransform);
       this.clipTo && ctx.restore();
       this._removeShadow(ctx);
-      
-      this._restorFillRule(ctx);
+
+      this._restoreFillRule(ctx);
 
       if (this.active && !noTransform) {
         this.drawBorders(ctx);
         this.drawControls(ctx);
       }
-      
+
       ctx.restore();
     },
 
@@ -11028,26 +11135,27 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
         y: pointer.y - objectLeftTop.y
       };
     },
-    
+
     /**
      * Sets canvas globalCompositeOperation for specific object
      * custom composition operation for the particular object can be specifed using fillRule property
      * @param {CanvasRenderingContext2D} ctx Rendering canvas context
      */
     _setupFillRule: function (ctx) {
-        if (this.fillRule) {
-          this._prevFillRule = ctx.globalCompositeOperation;
-          ctx.globalCompositeOperation = this.fillRule;
-        }
+      if (this.fillRule) {
+        this._prevFillRule = ctx.globalCompositeOperation;
+        ctx.globalCompositeOperation = this.fillRule;
+      }
     },
+
     /**
      * Restores previously saved canvas globalCompositeOperation after obeject rendering
      * @param {CanvasRenderingContext2D} ctx Rendering canvas context
      */
-    _restorFillRule: function (ctx) {
-        if (this.fillRule && this._prevFillRule) {
-          ctx.globalCompositeOperation = this._prevFillRule;
-        }
+    _restoreFillRule: function (ctx) {
+      if (this.fillRule && this._prevFillRule) {
+        ctx.globalCompositeOperation = this._prevFillRule;
+      }
     }
   });
 
@@ -12405,6 +12513,230 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
 })();
 
 
+fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.StaticCanvas.prototype */ {
+
+  /**
+   * Animation duration (in ms) for fx* methods
+   * @type Number
+   * @default
+   */
+  FX_DURATION: 500,
+
+  /**
+   * Centers object horizontally with animation.
+   * @param {fabric.Object} object Object to center
+   * @param {Object} [callbacks] Callbacks object with optional "onComplete" and/or "onChange" properties
+   * @param {Function} [callbacks.onComplete] Invoked on completion
+   * @param {Function} [callbacks.onChange] Invoked on every step of animation
+   * @return {fabric.Canvas} thisArg
+   * @chainable
+   */
+  fxCenterObjectH: function (object, callbacks) {
+    callbacks = callbacks || { };
+
+    var empty = function() { },
+        onComplete = callbacks.onComplete || empty,
+        onChange = callbacks.onChange || empty,
+        _this = this;
+
+    fabric.util.animate({
+      startValue: object.get('left'),
+      endValue: this.getCenter().left,
+      duration: this.FX_DURATION,
+      onChange: function(value) {
+        object.set('left', value);
+        _this.renderAll();
+        onChange();
+      },
+      onComplete: function() {
+        object.setCoords();
+        onComplete();
+      }
+    });
+
+    return this;
+  },
+
+  /**
+   * Centers object vertically with animation.
+   * @param {fabric.Object} object Object to center
+   * @param {Object} [callbacks] Callbacks object with optional "onComplete" and/or "onChange" properties
+   * @param {Function} [callbacks.onComplete] Invoked on completion
+   * @param {Function} [callbacks.onChange] Invoked on every step of animation
+   * @return {fabric.Canvas} thisArg
+   * @chainable
+   */
+  fxCenterObjectV: function (object, callbacks) {
+    callbacks = callbacks || { };
+
+    var empty = function() { },
+        onComplete = callbacks.onComplete || empty,
+        onChange = callbacks.onChange || empty,
+        _this = this;
+
+    fabric.util.animate({
+      startValue: object.get('top'),
+      endValue: this.getCenter().top,
+      duration: this.FX_DURATION,
+      onChange: function(value) {
+        object.set('top', value);
+        _this.renderAll();
+        onChange();
+      },
+      onComplete: function() {
+        object.setCoords();
+        onComplete();
+      }
+    });
+
+    return this;
+  },
+
+  /**
+   * Same as `fabric.Canvas#remove` but animated
+   * @param {fabric.Object} object Object to remove
+   * @param {Object} [callbacks] Callbacks object with optional "onComplete" and/or "onChange" properties
+   * @param {Function} [callbacks.onComplete] Invoked on completion
+   * @param {Function} [callbacks.onChange] Invoked on every step of animation
+   * @return {fabric.Canvas} thisArg
+   * @chainable
+   */
+  fxRemove: function (object, callbacks) {
+    callbacks = callbacks || { };
+
+    var empty = function() { },
+        onComplete = callbacks.onComplete || empty,
+        onChange = callbacks.onChange || empty,
+        _this = this;
+
+    fabric.util.animate({
+      startValue: object.get('opacity'),
+      endValue: 0,
+      duration: this.FX_DURATION,
+      onStart: function() {
+        object.set('active', false);
+      },
+      onChange: function(value) {
+        object.set('opacity', value);
+        _this.renderAll();
+        onChange();
+      },
+      onComplete: function () {
+        _this.remove(object);
+        onComplete();
+      }
+    });
+
+    return this;
+  }
+});
+
+fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prototype */ {
+  /**
+   * Animates object's properties
+   * @param {String|Object} property to animate (if string) or properties to animate (if object)
+   * @param {Number|Object} value to animate property to (if string was given first) or options object
+   * @return {fabric.Object} thisArg
+   * @tutorial {@link http://fabricjs.com/fabric-intro-part-2/#animation}
+   * @chainable
+   *
+   * As object — multiple properties
+   *
+   * object.animate({ left: ..., top: ... });
+   * object.animate({ left: ..., top: ... }, { duration: ... });
+   *
+   * As string — one property
+   *
+   * object.animate('left', ...);
+   * object.animate('left', { duration: ... });
+   *
+   */
+  animate: function() {
+    if (arguments[0] && typeof arguments[0] === 'object') {
+      var propsToAnimate = [ ], prop, skipCallbacks;
+      for (prop in arguments[0]) {
+        propsToAnimate.push(prop);
+      }
+      for (var i = 0, len = propsToAnimate.length; i < len; i++) {
+        prop = propsToAnimate[i];
+        skipCallbacks = i !== len - 1;
+        this._animate(prop, arguments[0][prop], arguments[1], skipCallbacks);
+      }
+    }
+    else {
+      this._animate.apply(this, arguments);
+    }
+    return this;
+  },
+
+  /**
+   * @private
+   * @param {String} property Property to animate
+   * @param {String} to Value to animate to
+   * @param {Object} [options] Options object
+   * @param {Boolean} [skipCallbacks] When true, callbacks like onchange and oncomplete are not invoked
+   */
+  _animate: function(property, to, options, skipCallbacks) {
+    var _this = this, propPair;
+
+    to = to.toString();
+
+    if (!options) {
+      options = { };
+    }
+    else {
+      options = fabric.util.object.clone(options);
+    }
+
+    if (~property.indexOf('.')) {
+      propPair = property.split('.');
+    }
+
+    var currentValue = propPair
+      ? this.get(propPair[0])[propPair[1]]
+      : this.get(property);
+
+    if (!('from' in options)) {
+      options.from = currentValue;
+    }
+
+    if (~to.indexOf('=')) {
+      to = currentValue + parseFloat(to.replace('=', ''));
+    }
+    else {
+      to = parseFloat(to);
+    }
+
+    fabric.util.animate({
+      startValue: options.from,
+      endValue: to,
+      byValue: options.by,
+      easing: options.easing,
+      duration: options.duration,
+      abort: options.abort && function() {
+        return options.abort.call(_this);
+      },
+      onChange: function(value) {
+        if (propPair) {
+          _this[propPair[0]][propPair[1]] = value;
+        }
+        else {
+          _this.set(property, value);
+        }
+        if (skipCallbacks) return;
+        options.onChange && options.onChange();
+      },
+      onComplete: function() {
+        if (skipCallbacks) return;
+
+        _this.setCoords();
+        options.onComplete && options.onComplete();
+      }
+    });
+  }
+});
+
+
 (function(global) {
 
   'use strict';
@@ -12526,12 +12858,12 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
         origin: 'originX',
         axis1: 'x1',
         axis2: 'x2',
-        dimension: 'width',
+        dimension: 'width'
       },
       { // possible values of origin
         nearest: 'left',
         center: 'center',
-        farthest: 'right',
+        farthest: 'right'
       }
     ),
 
@@ -12544,12 +12876,12 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
         origin: 'originY',
         axis1: 'y1',
         axis2: 'y2',
-        dimension: 'height',
+        dimension: 'height'
       },
       { // possible values of origin
         nearest: 'top',
         center: 'center',
-        farthest: 'bottom',
+        farthest: 'bottom'
       }
     ),
 
@@ -13110,10 +13442,10 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
       }
       ctx.transform(1, 0, 0, this.ry/this.rx, 0, 0);
       ctx.arc(noTransform ? this.left : 0, noTransform ? this.top : 0, this.rx, 0, piBy2, false);
+      ctx.restore();
 
       this._renderFill(ctx);
       this._renderStroke(ctx);
-      ctx.restore();
     },
 
     /**
@@ -14386,10 +14718,14 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
           val;
 
       val = parseInt(xy.x, 10);
-      if (!isNaN(val)) aX.push(val);
+      if (!isNaN(val)) {
+        aX.push(val);
+      }
 
       val = parseInt(xy.y, 10);
-      if (!isNaN(val)) aY.push(val);
+      if (!isNaN(val)) {
+        aY.push(val);
+      }
     },
 
     _getXY: function(item, isLowerCase, previous) {
@@ -19164,7 +19500,6 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
      * Initializes all the interactive behavior of IText
      */
     initBehavior: function() {
-      this.initKeyHandlers();
       this.initCursorSelectionHandlers();
       this.initDoubleClickSimulation();
     },
@@ -19848,7 +20183,7 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
     // for triple click
     this.__lastLastClickTime = +new Date();
 
-    this.lastPointer = { };
+    this.__lastPointer = { };
 
     this.on('mousedown', this.onMouseDown.bind(this));
   },
@@ -20118,15 +20453,6 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
 fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.prototype */ {
 
   /**
-   * Initializes key handlers
-   */
-  initKeyHandlers: function() {
-    fabric.util.addListener(fabric.document, 'keydown', this.onKeyDown.bind(this));
-    fabric.util.addListener(fabric.document, 'keypress', this.onKeyPress.bind(this));
-    fabric.util.addListener(fabric.document, 'click', this.onClick.bind(this));
-  },
-
-  /**
    * Initializes hidden textarea (needed to bring up keyboard in iOS)
    */
   initHiddenTextarea: function() {
@@ -20136,6 +20462,14 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
     this.hiddenTextarea.style.cssText = 'position: absolute; top: 0; left: -9999px';
 
     fabric.document.body.appendChild(this.hiddenTextarea);
+
+    fabric.util.addListener(this.hiddenTextarea, 'keydown', this.onKeyDown.bind(this));
+    fabric.util.addListener(this.hiddenTextarea, 'keypress', this.onKeyPress.bind(this));
+
+    if (!this._clickHandlerInitialized && this.canvas) {
+      fabric.util.addListener(this.canvas.upperCanvasEl, 'click', this.onClick.bind(this));
+      this._clickHandlerInitialized = true;
+    }
   },
 
   /**
