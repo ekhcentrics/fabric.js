@@ -1,5 +1,5 @@
 /* build: `node build.js modules=ALL exclude=serialization,parser,easing,node,freedrawing,cufon minifier=uglifyjs` */
-/*! Fabric.js Copyright 2008-2013, Printio (Juriy Zaytsev, Maxim Chernyak) */
+/*! Fabric.js Copyright 2008-2014, Printio (Juriy Zaytsev, Maxim Chernyak) */
 
 var fabric = fabric || { version: "1.4.4" };
 if (typeof exports !== 'undefined') {
@@ -2599,17 +2599,9 @@ fabric.Collection = {
    * Returns true if collection contains no objects
    * @return {Boolean} true if collection is empty
    */
-<<<<<<< HEAD
   isEmpty: function () {
     return this.getObjects().length === 0;
   },
-=======
-  function addClass(element, className) {
-    if (element && (' ' + element.className + ' ').indexOf(' ' + className + ' ') === -1) {
-      element.className += (element.className ? ' ' : '') + className;
-    }
-  }
->>>>>>> Build distribution
 
   /**
    * Returns a size of a collection (i.e: length of an array containing its objects)
@@ -4154,7 +4146,7 @@ fabric.Collection = {
    * @param {String} className Class to add to an element
    */
   function addClass(element, className) {
-    if ((' ' + element.className + ' ').indexOf(' ' + className + ' ') === -1) {
+    if (element && (' ' + element.className + ' ').indexOf(' ' + className + ' ') === -1) {
       element.className += (element.className ? ' ' : '') + className;
     }
   }
@@ -5046,7 +5038,6 @@ if (typeof console !== 'undefined') {
 
   fabric.Color.prototype = /** @lends fabric.Color.prototype */ {
 
-<<<<<<< HEAD
     /**
      * @private
      * @param {String|Array} color Color value to parse
@@ -5056,20 +5047,6 @@ if (typeof console !== 'undefined') {
 
       if (color in Color.colorNameMap) {
         color = Color.colorNameMap[color];
-=======
-    // if the image failed to load, return, and allow rest to continue loading
-    if (!source) {
-      return '';
-    }
-
-    // if an image
-    if (typeof source.src !== 'undefined') {
-      if (!source.complete) {
-        return '';
-      }
-      if (source.naturalWidth === 0 || source.naturalHeight === 0) {
-        return '';
->>>>>>> Build distribution
       }
 
       source = Color.sourceFromHex(color);
@@ -5887,6 +5864,11 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
     var source = typeof this.source === 'function'
       ? this.source()
       : this.source;
+
+    // if the image failed to load, return, and allow rest to continue loading
+    if (!source) {
+      return '';
+    }
 
     // if an image
     if (typeof source.src !== 'undefined') {
@@ -6971,11 +6953,12 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
         activeGroup.forEachObject(function(o) {
           o.set('active', true);
         });
+
+        if (this._currentTransform) {
+          this._currentTransform.target = this.getActiveGroup();
+        }
       }
 
-      if (this._currentTransform) {
-        this._currentTransform.target = this.getActiveGroup();
-      }
 
       return data;
     },
@@ -8721,14 +8704,20 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
     _onMouseDown: function (e) {
       this.__onMouseDown(e);
 
-      addListener(fabric.document, 'mouseup', this._onMouseUp);
       addListener(fabric.document, 'touchend', this._onMouseUp);
-
-      addListener(fabric.document, 'mousemove', this._onMouseMove);
       addListener(fabric.document, 'touchmove', this._onMouseMove);
 
       removeListener(this.upperCanvasEl, 'mousemove', this._onMouseMove);
       removeListener(this.upperCanvasEl, 'touchmove', this._onMouseMove);
+
+      if (e.type === 'touchstart') {
+        // Unbind mousedown to prevent double triggers from touch devices
+        removeListener(this.upperCanvasEl, 'mousedown', this._onMouseDown); 
+      }
+      else {
+        addListener(fabric.document, 'mouseup', this._onMouseUp);
+        addListener(fabric.document, 'mousemove', this._onMouseMove);
+      }
     },
 
     /**
@@ -8746,6 +8735,15 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
 
       addListener(this.upperCanvasEl, 'mousemove', this._onMouseMove);
       addListener(this.upperCanvasEl, 'touchmove', this._onMouseMove);
+
+      if (e.type === 'touchend') {
+        // Wait 400ms before rebinding mousedown to prevent double triggers
+        // from touch devices
+        var _this = this;
+        setTimeout(function() {
+          addListener(_this.upperCanvasEl, 'mousedown', _this._onMouseDown);
+        }, 400);
+      }
     },
 
     /**
@@ -9584,7 +9582,9 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
 
         ctx = this.contextTop || this.contextContainer;
 
-    this.setWidth(scaledWidth).setHeight(scaledHeight);
+    if (multiplier > 1) {
+      this.setWidth(scaledWidth).setHeight(scaledHeight);
+    }
     ctx.scale(multiplier, multiplier);
 
     if (cropping.left) {
@@ -9596,8 +9596,14 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
     if (cropping.width) {
       cropping.width *= multiplier;
     }
+    else if (multiplier < 1) {
+      cropping.width = scaledWidth;
+    }
     if (cropping.height) {
       cropping.height *= multiplier;
+    }
+    else if (multiplier < 1) {
+      cropping.height = scaledHeight;
     }
 
     if (activeGroup) {
