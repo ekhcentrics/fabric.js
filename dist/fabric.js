@@ -20603,14 +20603,142 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
 
     fabric.document.body.appendChild(this.hiddenTextarea);
 
-    fabric.util.addListener(this.hiddenTextarea, 'keydown', this.onKeyDown.bind(this));
-    fabric.util.addListener(this.hiddenTextarea, 'keypress', this.onKeyPress.bind(this));
+
+	if (navigator && navigator.userAgent.indexOf('Chrome') !== -1 && navigator.userAgent.indexOf('Android') !== -1) {
+		//EKH
+		//Chome on android sucks in one specific way (well, several).
+		//NO keypress event in sight. keydown/keyup events - keyCode = 0 sometimes!		
+		//https://code.google.com/p/chromium/issues/detail?id=118639
+		
+		//EKH - for chrome/android; we do not currently get 'keypress', but do the the input event
+	    //(at least on Samsumg 10.1 GT-N8013 android 4.1.2 with default keyboard)
+		//Going to analyze the before/after text and decide what characters to insert/delete.
+		fabric.util.addListener(this.hiddenTextarea, 'keydown', this.onKeyDown.bind(this));
+		fabric.util.addListener(this.hiddenTextarea, 'input', this.onChromeAndroidInput.bind(this));
+	}
+	else {
+		fabric.util.addListener(this.hiddenTextarea, 'keydown', this.onKeyDown.bind(this));
+		fabric.util.addListener(this.hiddenTextarea, 'keypress', this.onKeyPress.bind(this));
+	}
 
     if (!this._clickHandlerInitialized && this.canvas) {
       fabric.util.addListener(this.canvas.upperCanvasEl, 'click', this.onClick.bind(this));
       this._clickHandlerInitialized = true;
     }
   },
+
+   
+    getCharactersToInsert : function (originalText, newText) {
+	   
+	   var i,j,
+		   idxFirstDifference = -1, 
+		   idxLastSameOnNew = -1,
+		   numSameOnEnd = 0,
+		   newCandidate,
+		   newOriginal;
+		
+		if(originalText === newText) {            
+			return { text: originalText, selectionStart: this.selectionStart, selectionEnd: this.selectionEnd };			
+		}
+		else
+		{
+			//find first difference
+			i = 0;
+			while(i < originalText.length && i < newText.length) {
+				if(originalText.substr(i, 1) !== newText.substr(i, 1)) {
+					idxFirstDifference = i;
+					break;
+				}  
+				i = i + 1;
+			}
+			newOriginal = originalText;
+			if(idxFirstDifference === -1) {
+				// originalText shorter than newText
+				// originalText: AAA
+				// newText: AAAB
+				if(originalText.length < newText.length) {
+					idxFirstDifference = originalText.length;
+					newOriginal = '';
+				}
+				else {
+					//newText shorter than originalText
+					// newText: AAA
+					// originalText: AAAB
+					idxFirstDifference = newText.length;
+					newOriginal = originalText.substr(newText.length);
+				}
+			}
+			else {
+				newOriginal = newOriginal.substr(idxFirstDifference);
+			}
+			
+			newCandidate = newText.substr(idxFirstDifference);
+			
+			//find last difference
+			i = newOriginal.length-1;
+			j = newCandidate.length-1;
+		   
+			numSameOnEnd = 0;
+			while(i >= 0 && j >= 0) {
+				if(newOriginal.substr(i, 1) === newCandidate.substr(j, 1)) {
+					numSameOnEnd = numSameOnEnd + 1;
+					idxLastSameOnNew = j;
+				}
+				else {
+					break;
+				}
+				i = i - 1;
+				j = j - 1;
+			}
+			if (numSameOnEnd === 0) {
+				//the two strings are completely different., cursor goes at end..
+				return { text: newCandidate, selectionStart: newText.length, selectionEnd: newText.length }  ;  
+			}
+			else {
+				newCandidate = newCandidate.substr(0, idxLastSameOnNew);
+				i = idxFirstDifference+newCandidate.length;
+				return { text: newCandidate, selectionStart: i, selectionEnd: i }  ;    
+			}
+
+		}	
+	},
+	
+	onChromeAndroidInput : function (e) {
+		
+		var oldText,
+			newText,
+			toInsert;
+		
+		if (!this.isEditing ) {
+		  return;
+		}
+		oldText = this.text;
+		newText = this.hiddenTextarea.value;
+				
+		if (oldText !== newText) {
+		
+			toInsert = this.getCharactersToInsert(oldText, newText);			
+			//Debug("-----------------------------------");
+			//Debug("old: " + oldText);
+			//Debug("new: " + newText);
+			//Debug("toInsert: '" + toInsert.text + "' selStart: " + toInsert.selectionStart + " end " + toInsert.selectionEnd);
+			//Debug("-----------------------------------");
+			if(toInsert.text.length === 0) {
+				this.removeChars(e);
+			}
+			else {
+				this.insertChars(toInsert.text);
+				this.setSelectionStart(toInsert.selectionStart);
+				this.setSelectionEnd(toInsert.selectionEnd);
+			}
+		}
+
+		e.preventDefault();
+		e.stopPropagation();
+		
+		this.canvas && this.canvas.renderAll();
+	},
+  
 
   /**
    * @private
@@ -20657,8 +20785,12 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
       return;
     }
 
-    e.preventDefault();
-    e.stopPropagation();
+	//EKH - for android/chrome algorith, I need the carriage return in the textbox, does not appear to break other browsers that I see, may need to be conditional on that particular user agent
+	if(e.keyCode !== 13) {
+		e.preventDefault();
+		e.stopPropagation();
+	}
+
 
     this.canvas && this.canvas.renderAll();
   },
