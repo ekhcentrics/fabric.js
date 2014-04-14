@@ -19835,14 +19835,15 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
      * @return {fabric.IText} thisArg
      * @chainable
      */
-    enterEditing: function() {
+    enterEditing: function(x, y) {
       if (this.isEditing || !this.editable) return;
 
       this.exitEditingOnOthers();
 
       this.isEditing = true;
 
-      this.initHiddenTextarea();
+	  //EKH - pass through x,y
+      this.initHiddenTextarea(x, y);
       this._updateTextarea();
       this._saveEditingProps();
       this._setEditingProps();
@@ -20305,9 +20306,11 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
       this.__mousedownY = pointer.y;
       this.__isMousedown = true;
 
-      if (this.hiddenTextarea && this.canvas) {
-        this.canvas.wrapperEl.appendChild(this.hiddenTextarea);
-      }
+	//EKH - do NOT move the text area about, we've positioned it absolutely in document space where we want the keyboard (mobile) to appear.
+	//moving it will cause the screen to shift about, you'll not see what you are editing.
+	//if (this.hiddenTextarea && this.canvas) {
+	//  this.canvas.wrapperEl.appendChild(this.hiddenTextarea);
+	//}
 
       if (this.selected) {
         this.setCursorByClick(options.e);
@@ -20354,12 +20357,23 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
    * Initializes "mouseup" event handler
    */
   initMouseupHandler: function() {
+    var x, y;
     this.on('mouseup', function(options) {
       this.__isMousedown = false;
       if (this._isObjectMoved(options.e)) return;
 
       if (this.selected) {
-        this.enterEditing();
+	    //EKH - pass through x/y data so we can place the text area in the correct place to popup the keyboard
+		x = options.e.pageX;
+		y = options.e.pageY;
+		
+		//if its a touch event..
+		if (options.e.changedTouches && options.e.changedTouches.length > 0) {
+			x = options.e.changedTouches[0].pageX;
+			y = options.e.changedTouches[0].pageY;
+		}
+        this.enterEditing(x, y);
+
         this.initDelayedCursor(true);
       }
       this.selected = true;
@@ -20496,16 +20510,39 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
   /**
    * Initializes hidden textarea (needed to bring up keyboard in iOS)
    */
-  initHiddenTextarea: function() {
+  initHiddenTextarea: function(x, y) {
+		var userAgent = (navigator && navigator.userAgent) ? navigator && navigator.userAgent.toLowerCase() : '',
+			looksLikeiPad = userAgent.indexOf('ipad') !== -1,
+			looksLikeAndroidChrome = userAgent.indexOf('chrome') !== -1 && userAgent.indexOf('android') !== -1;
+
     this.hiddenTextarea = fabric.document.createElement('textarea');
 
     this.hiddenTextarea.setAttribute('autocapitalize', 'off');
-    this.hiddenTextarea.style.cssText = 'position: absolute; top: 0; left: -9999px';
-
+    if (!y) {
+      y = 0;
+    }
+    
+    if (!fabric.isTouchSupported) {
+		//Here we don't care where the text layer is.. just toss it on.
+		this.hiddenTextarea.style.cssText = 'position: absolute; top: 0; left: -9999px;';    	
+    }
+    else {
+    	if (looksLikeiPad) {
+    		//On an ipad, we can position the text area, and make it transparent, but the cursor remains. For now, just shove it off to the left.
+    		this.hiddenTextarea.style.cssText = 'position: absolute; top: ' + y + 'px; left: -9999px;';    	
+    	}
+		else {
+    		//Other places we can try to hide the text area in the correct location; that way the keyboard scrolls the text being editing into view.
+			//(works for non-rotated text anyways...)
+			this.hiddenTextarea.style.cssText = 'position: absolute; top: ' + y + 'px; left: ' + x + 'px; padding: 0px; border:none; outline:none; cursor:none; resize:none; color:transparent; z-index:-1000; filter:alpha(opacity=0); opacity: 0';
+		}
+	}
+	
+        
     fabric.document.body.appendChild(this.hiddenTextarea);
 
 
-	if (navigator && navigator.userAgent.indexOf('Chrome') !== -1 && navigator.userAgent.indexOf('Android') !== -1) {
+	if (looksLikeAndroidChrome) {
 		//EKH
 		//Chome on android sucks in one specific way (well, several).
 		//NO keypress event in sight. keydown/keyup events - keyCode = 0 sometimes!		

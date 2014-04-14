@@ -91,9 +91,11 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
       this.__mousedownY = pointer.y;
       this.__isMousedown = true;
 
-      if (this.hiddenTextarea && this.canvas) {
-        this.canvas.wrapperEl.appendChild(this.hiddenTextarea);
-      }
+	//EKH - do NOT move the text area about, we've positioned it absolutely in document space where we want the keyboard (mobile) to appear.
+	//moving it will cause the screen to shift about, you'll not see what you are editing.
+	//if (this.hiddenTextarea && this.canvas) {
+	//  this.canvas.wrapperEl.appendChild(this.hiddenTextarea);
+	//}
 
       if (this.selected) {
         this.setCursorByClick(options.e);
@@ -140,12 +142,23 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
    * Initializes "mouseup" event handler
    */
   initMouseupHandler: function() {
+    var x, y;
     this.on('mouseup', function(options) {
       this.__isMousedown = false;
       if (this._isObjectMoved(options.e)) return;
 
       if (this.selected) {
-        this.enterEditing();
+	    //EKH - pass through x/y data so we can place the text area in the correct place to popup the keyboard
+		x = options.e.pageX;
+		y = options.e.pageY;
+		
+		//if its a touch event..
+		if (options.e.changedTouches && options.e.changedTouches.length > 0) {
+			x = options.e.changedTouches[0].pageX;
+			y = options.e.changedTouches[0].pageY;
+		}
+        this.enterEditing(x, y);
+
         this.initDelayedCursor(true);
       }
       this.selected = true;

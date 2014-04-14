@@ -3,16 +3,39 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
   /**
    * Initializes hidden textarea (needed to bring up keyboard in iOS)
    */
-  initHiddenTextarea: function() {
+  initHiddenTextarea: function(x, y) {
+		var userAgent = (navigator && navigator.userAgent) ? navigator && navigator.userAgent.toLowerCase() : '',
+			looksLikeiPad = userAgent.indexOf('ipad') !== -1,
+			looksLikeAndroidChrome = userAgent.indexOf('chrome') !== -1 && userAgent.indexOf('android') !== -1;
+
     this.hiddenTextarea = fabric.document.createElement('textarea');
 
     this.hiddenTextarea.setAttribute('autocapitalize', 'off');
-    this.hiddenTextarea.style.cssText = 'position: absolute; top: 0; left: -9999px';
-
+    if (!y) {
+      y = 0;
+    }
+    
+    if (!fabric.isTouchSupported) {
+		//Here we don't care where the text layer is.. just toss it on.
+		this.hiddenTextarea.style.cssText = 'position: absolute; top: 0; left: -9999px;';    	
+    }
+    else {
+    	if (looksLikeiPad) {
+    		//On an ipad, we can position the text area, and make it transparent, but the cursor remains. For now, just shove it off to the left.
+    		this.hiddenTextarea.style.cssText = 'position: absolute; top: ' + y + 'px; left: -9999px;';    	
+    	}
+		else {
+    		//Other places we can try to hide the text area in the correct location; that way the keyboard scrolls the text being editing into view.
+			//(works for non-rotated text anyways...)
+			this.hiddenTextarea.style.cssText = 'position: absolute; top: ' + y + 'px; left: ' + x + 'px; padding: 0px; border:none; outline:none; cursor:none; resize:none; color:transparent; z-index:-1000; filter:alpha(opacity=0); opacity: 0';
+		}
+	}
+	
+        
     fabric.document.body.appendChild(this.hiddenTextarea);
 
 
-	if (navigator && navigator.userAgent.indexOf('Chrome') !== -1 && navigator.userAgent.indexOf('Android') !== -1) {
+	if (looksLikeAndroidChrome) {
 		//EKH
 		//Chome on android sucks in one specific way (well, several).
 		//NO keypress event in sight. keydown/keyup events - keyCode = 0 sometimes!		
