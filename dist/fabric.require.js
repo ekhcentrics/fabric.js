@@ -1,7 +1,7 @@
 /* build: `node build.js modules=ALL exclude=serialization,parser,easing,node,freedrawing,cufon minifier=uglifyjs` */
 /*! Fabric.js Copyright 2008-2014, Printio (Juriy Zaytsev, Maxim Chernyak) */
 
-var fabric = fabric || { version: "1.4.5" };
+var fabric = fabric || { version: "1.4.4" };
 if (typeof exports !== 'undefined') {
   exports.fabric = fabric;
 }
@@ -37,7 +37,6 @@ fabric.isLikelyNode = typeof Buffer !== 'undefined' &&
  * @type array
  */
 fabric.SHARED_ATTRIBUTES = [
-  "display",
   "transform",
   "fill", "fill-opacity", "fill-rule",
   "opacity",
@@ -5050,11 +5049,6 @@ if (typeof console !== 'undefined') {
         color = Color.colorNameMap[color];
       }
 
-      if (color === 'transparent') {
-        this.setSource([255,255,255,0]);
-        return;
-      }
-
       source = Color.sourceFromHex(color);
 
       if (!source) {
@@ -8204,6 +8198,21 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
       var target,
           pointer = this.getPointer(e);
 
+    	/*
+This change makes it so that if you select an object, you can NEVER select an object on top of it.
+Commenting out this section for now.
+
+searchPossibleTargets regression #1188
+https://github.com/kangax/fabric.js/issues/1188
+older, working: http://jsfiddle.net/fotoguy42/96JNh/1/
+newer, busted: http://jsfiddle.net/fotoguy42/R5dpN/1/
+  
+      if (this._activeObject && this._checkTarget(e, this._activeObject, pointer)) {
+        this.relatedTarget = this._activeObject;
+        return this._activeObject;
+      }
+	  */
+
       var i = this._objects.length;
 
       while (i--) {
@@ -9166,17 +9175,25 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
     /**
      * @private
      */
-    _onScale: function(e, transform, x, y) {
+    _onScale: function (e, transform, x, y) {
+      //EKH 18991  :  html5 - image node corner handles should scale w/ locked aspect (to match flash wizard) - added 'lockUniScalingOnCorners'
+    	var target = transform.target,
+          whichHandle = target.__corner,
+          isCorner = (whichHandle === "tr" || whichHandle === "tl" || whichHandle === "br" || whichHandle === "bl"),
+          lockUniScalingOnCorners = target.get('lockUniScalingOnCorners'),
+          shouldScaleEqualy = false;
+      
+      
       // rotate object only if shift key is not pressed
       // and if it is not a group we are transforming
-      if ((e.shiftKey || this.uniScaleTransform) && !transform.target.get('lockUniScaling')) {
+      if (!(isCorner && lockUniScalingOnCorners) && (e.shiftKey || this.uniScaleTransform) && !target.get('lockUniScaling')) {
         transform.currentAction = 'scale';
         this._scaleObject(x, y);
       }
       else {
         // Switch from a normal resize to proportional
         if (!transform.reset && transform.currentAction === 'scale') {
-          this._resetCurrentTransform(e, transform.target);
+          this._resetCurrentTransform(e, target);
         }
 
         transform.currentAction = 'scaleEqually';
@@ -10440,6 +10457,14 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
      */
     lockUniScaling:           false,
 
+
+    /**
+     * When `true`, object non-uniform scaling is locked when you use one of the corners (tl, tr, bl, br)
+     * @type Boolean
+     * @default
+     */
+    lockUniScalingOnCorners:           false,
+
     /**
      * List of properties to consider when checking if state
      * of an object is changed (fabric.Object#hasStateChanged)
@@ -10809,12 +10834,7 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
           -this.width / 2 + this.fill.offsetX || 0,
           -this.height / 2 + this.fill.offsetY || 0);
       }
-      if (this.fillRule === 'destination-over') {
-        ctx.fill('evenodd');
-      }
-      else {
-        ctx.fill();
-      }
+      ctx.fill();
       if (this.fill.toLive) {
         ctx.restore();
       }
@@ -12428,7 +12448,7 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
           top + height + scaleOffsetSizeY + strokeWidth2 + paddingY);
 
         // middle-right
-        this._drawControl('mr', ctx, methodName,
+        this._drawControl('mb', ctx, methodName,
           left + width + scaleOffsetSizeX + strokeWidth2 + paddingX,
           top + height/2 - scaleOffsetY);
 
@@ -13605,15 +13625,14 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
         return;
       }
 
-      var rx = this.rx ? Math.min(this.rx, this.width / 2) : 0,
-          ry = this.ry ? Math.min(this.ry, this.height / 2) : 0,
+      var rx = this.rx || 0,
+          ry = this.ry || 0,
           w = this.width,
           h = this.height,
           x = -w / 2,
           y = -h / 2,
           isInPathGroup = this.group && this.group.type === 'path-group',
-          isRounded = rx !== 0 || ry !== 0,
-          k = 1 - 0.5522847498 /* "magic number" for bezier approximations of arcs (http://itc.ktu.lt/itc354/Riskus354.pdf) */;
+          isRounded = rx !== 0 || ry !== 0;
 
       ctx.beginPath();
       ctx.globalAlpha = isInPathGroup ? (ctx.globalAlpha * this.opacity) : this.opacity;
@@ -13632,16 +13651,16 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
       ctx.moveTo(x + rx, y);
 
       ctx.lineTo(x + w - rx, y);
-      isRounded && ctx.bezierCurveTo(x + w - k * rx, y, x + w, y + k * ry, x + w, y + ry);
+      isRounded && ctx.quadraticCurveTo(x + w, y, x + w, y + ry, x + w, y + ry);
 
       ctx.lineTo(x + w, y + h - ry);
-      isRounded && ctx.bezierCurveTo(x + w, y + h - k * ry, x + w - k * rx, y + h, x + w - rx, y + h);
+      isRounded && ctx.quadraticCurveTo(x + w, y + h, x + w - rx, y + h, x + w - rx, y + h);
 
       ctx.lineTo(x + rx, y + h);
-      isRounded && ctx.bezierCurveTo(x + k * rx, y + h, x, y + h - k * ry, x, y + h - ry);
+      isRounded && ctx.quadraticCurveTo(x, y + h, x, y + h - ry, x, y + h - ry);
 
       ctx.lineTo(x, y + ry);
-      isRounded && ctx.bezierCurveTo(x, y + k * ry, x + k * rx, y, x + rx, y);
+      isRounded && ctx.quadraticCurveTo(x, y, x + rx, y, x + rx, y);
 
       ctx.closePath();
 
@@ -14865,14 +14884,6 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
       }
 
       this.setOptions(options);
-
-      if (options.widthAttr) {
-        this.scaleX = options.widthAttr / options.width;
-      }
-      if (options.heightAttr) {
-        this.scaleY = options.heightAttr / options.height;
-      }
-
       this.setCoords();
 
       if (options.sourcePath) {
@@ -14996,9 +15007,9 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
      * @return {Boolean} true if all paths are of the same color (`fill`)
      */
     isSameColor: function() {
-      var firstPathFill = (this.getObjects()[0].get('fill') || '').toLowerCase();
+      var firstPathFill = this.getObjects()[0].get('fill');
       return this.getObjects().every(function(path) {
-        return (path.get('fill') || '').toLowerCase() === firstPathFill;
+        return path.get('fill') === firstPathFill;
       });
     },
 
@@ -15083,7 +15094,8 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
     lockRotation:   true,
     lockScalingX:   true,
     lockScalingY:   true,
-    lockUniScaling: true
+    lockUniScaling: true,
+    lockUniScalingOnCorners: true
   };
 
   /**
@@ -15738,16 +15750,13 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
 
       // this._resetWidthHeight();
       if (isInPathGroup) {
-        ctx.translate(-this.group.width/2, -this.group.height/2);
+        ctx.translate(-this.group.width/2 + this.width/2, -this.group.height/2 + this.height/2);
       }
       if (m) {
         ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
       }
       if (!noTransform) {
         this.transform(ctx);
-      }
-      if (isInPathGroup) {
-        ctx.translate(this.width/2, this.height/2);
       }
 
       ctx.save();
@@ -15987,7 +15996,7 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
       options || (options = { });
       this.setOptions(options);
       this._setWidthHeight(options);
-      if (this._element && this.crossOrigin) {
+      if (this._element) {
         this._element.crossOrigin = this.crossOrigin;
       }
     },
@@ -17339,100 +17348,6 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
 
   'use strict';
 
-  var fabric  = global.fabric || (global.fabric = { }),
-      extend = fabric.util.object.extend;
-
-  /**
-   * Multiply filter class
-   * Adapted from <a href="http://www.laurenscorijn.com/articles/colormath-basics">http://www.laurenscorijn.com/articles/colormath-basics</a>
-   * @class fabric.Image.filters.Multiply
-   * @memberOf fabric.Image.filters
-   * @extends fabric.Image.filters.BaseFilter
-   * @example <caption>Multiply filter with hex color</caption>
-   * var filter = new fabric.Image.filters.Multiply({
-   *   color: '#F0F'
-   * });
-   * object.filters.push(filter);
-   * object.applyFilters(canvas.renderAll.bind(canvas));
-   * @example <caption>Multiply filter with rgb color</caption>
-   * var filter = new fabric.Image.filters.Multiply({
-   *   color: 'rgb(53, 21, 176)'
-   * });
-   * object.filters.push(filter);
-   * object.applyFilters(canvas.renderAll.bind(canvas));
-   */
-  fabric.Image.filters.Multiply = fabric.util.createClass(fabric.Image.filters.BaseFilter, /** @lends fabric.Image.filters.Multiply.prototype */ {
-
-    /**
-     * Filter type
-     * @param {String} type
-     * @default
-     */
-    type: 'Multiply',
-
-    /**
-     * Constructor
-     * @memberOf fabric.Image.filters.Multiply.prototype
-     * @param {Object} [options] Options object
-     * @param {String} [options.color=#000000] Color to multiply the image pixels with
-     */
-    initialize: function(options) {
-      options = options || { };
-
-      this.color = options.color || '#000000';
-    },
-
-    /**
-     * Applies filter to canvas element
-     * @param {Object} canvasEl Canvas element to apply filter to
-     */
-    applyTo: function(canvasEl) {
-      var context = canvasEl.getContext('2d'),
-          imageData = context.getImageData(0, 0, canvasEl.width, canvasEl.height),
-          data = imageData.data,
-          iLen = data.length, i,
-          source;
-
-      source = new fabric.Color(this.color).getSource();
-
-      for (i = 0; i < iLen; i+=4) {
-        data[i] *= source[0]/255;
-        data[i + 1] *= source[1]/255;
-        data[i + 2] *= source[2]/255;
-        
-      }
-
-      context.putImageData(imageData, 0, 0);
-    },
-
-    /**
-     * Returns object representation of an instance
-     * @return {Object} Object representation of an instance
-     */
-    toObject: function() {
-      return extend(this.callSuper('toObject'), {
-        color: this.color
-      });
-    }
-  });
-
-  /**
-   * Returns filter instance from an object representation
-   * @static
-   * @param {Object} object Object to create an instance from
-   * @return {fabric.Image.filters.Multiply} Instance of fabric.Image.filters.Multiply
-   */
-  fabric.Image.filters.Multiply.fromObject = function(object) {
-    return new fabric.Image.filters.Multiply(object);
-  };
-
-})(typeof exports !== 'undefined' ? exports : this);
-
-
-(function(global) {
-
-  'use strict';
-
   var fabric = global.fabric || (global.fabric = { }),
       extend = fabric.util.object.extend,
       clone = fabric.util.object.clone,
@@ -18199,8 +18114,8 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
 
       ctx.save();
       var m = this.transformMatrix;
-      if (m && (!this.group || this.group.type === 'path-group')) {
-        ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      if (m && !this.group) {
+        ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
       }
       this._render(ctx);
       if (!noTransform && this.active) {
@@ -19934,14 +19849,15 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
      * @return {fabric.IText} thisArg
      * @chainable
      */
-    enterEditing: function() {
+    enterEditing: function(x, y) {
       if (this.isEditing || !this.editable) return;
 
       this.exitEditingOnOthers();
 
       this.isEditing = true;
 
-      this.initHiddenTextarea();
+	  //EKH - pass through x,y
+      this.initHiddenTextarea(x, y);
       this._updateTextarea();
       this._saveEditingProps();
       this._setEditingProps();
@@ -20399,14 +20315,20 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
     this.on('mousedown', function(options) {
 
       var pointer = this.canvas.getPointer(options.e);
+	  
+	  //EKH - to know if we really moved, we want to store the NODE coordinates, not where the mouse is.. we could be clicking the node in different spots, not moving it.
+      this._mouseDownTop = this.top;
+      this._mouseDownLeft = this.left;
 
       this.__mousedownX = pointer.x;
       this.__mousedownY = pointer.y;
       this.__isMousedown = true;
 
-      if (this.hiddenTextarea && this.canvas) {
-        this.canvas.wrapperEl.appendChild(this.hiddenTextarea);
-      }
+	//EKH - do NOT move the text area about, we've positioned it absolutely in document space where we want the keyboard (mobile) to appear.
+	//moving it will cause the screen to shift about, you'll not see what you are editing.
+	//if (this.hiddenTextarea && this.canvas) {
+	//  this.canvas.wrapperEl.appendChild(this.hiddenTextarea);
+	//}
 
       if (this.selected) {
         this.setCursorByClick(options.e);
@@ -20425,6 +20347,9 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
   initMousemoveHandler: function() {
     this.on('mousemove', function(options) {
       if (!this.__isMousedown || !this.isEditing) return;
+	  
+      //EKH - for reasons I do not yet comprehend, we are getting a mousemove event, even through we have not moved.
+      if (!this._isObjectMoved(options.e)) return;
 
       var newSelectionStart = this.getSelectionStartFromPointer(options.e);
 
@@ -20453,12 +20378,29 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
    * Initializes "mouseup" event handler
    */
   initMouseupHandler: function() {
+    var x, y;
     this.on('mouseup', function(options) {
       this.__isMousedown = false;
-      if (this._isObjectMoved(options.e)) return;
 
-      if (this.selected) {
-        this.enterEditing();
+      //Did we move the NODE? (note that this is a different answer than the _.isObjectMoved - it is just 
+      //looking at the different mouse down corrdinates, not if the node moved.	  
+      if (this._mouseDownTop !== this.top && this._mouseDownLeft !== this.left) {
+         return;
+      }
+
+
+      if (this.selected && !this.isEditing) {
+	    //EKH - pass through x/y data so we can place the text area in the correct place to popup the keyboard
+		x = options.e.pageX;
+		y = options.e.pageY;
+		
+		//if its a touch event..
+		if (options.e.changedTouches && options.e.changedTouches.length > 0) {
+			x = options.e.changedTouches[0].pageX;
+			y = options.e.changedTouches[0].pageY;
+		}
+        this.enterEditing(x, y);
+
         this.initDelayedCursor(true);
       }
       this.selected = true;
@@ -20516,8 +20458,7 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
         prevWidth = 0,
         width = 0,
         height = 0,
-        charIndex = 0,
-        newSelectionStart;
+        charIndex = 0;
 
     for (var i = 0, len = textLines.length; i < len; i++) {
 
@@ -20550,16 +20491,19 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
           mouseOffset, prevWidth, width, charIndex + i, jlen);
       }
 
-       if (mouseOffset.y < height) {
+      if (mouseOffset.y < height) {
+        //EKH - if this is the last line, then we want the cursor after the last character.
+        if (i === textLines.length - 1) {
+          return this.text.length;
+        }
           return this._getNewSelectionStartFromOffset(
             mouseOffset, prevWidth, width, charIndex + i, jlen, j);
        }
+
     }
 
     // clicked somewhere after all chars, so set at the end
-    if (typeof newSelectionStart === 'undefined') {
-      return this.text.length;
-    }
+    return this.text.length;
   },
 
   /**
@@ -20595,16 +20539,39 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
   /**
    * Initializes hidden textarea (needed to bring up keyboard in iOS)
    */
-  initHiddenTextarea: function() {
+  initHiddenTextarea: function(x, y) {
+		var userAgent = (navigator && navigator.userAgent) ? navigator && navigator.userAgent.toLowerCase() : '',
+			looksLikeiPad = userAgent.indexOf('ipad') !== -1,
+			looksLikeAndroidChrome = userAgent.indexOf('chrome') !== -1 && userAgent.indexOf('android') !== -1;
+
     this.hiddenTextarea = fabric.document.createElement('textarea');
 
     this.hiddenTextarea.setAttribute('autocapitalize', 'off');
-    this.hiddenTextarea.style.cssText = 'position: absolute; top: 0; left: -9999px';
-
+    if (!y) {
+      y = 0;
+    }
+    
+    if (!fabric.isTouchSupported) {
+		//Here we don't care where the text layer is.. just toss it on.
+		this.hiddenTextarea.style.cssText = 'position: absolute; top: 0; left: -9999px;';    	
+    }
+    else {
+    	if (looksLikeiPad) {
+    		//On an ipad, we can position the text area, and make it transparent, but the cursor remains. For now, just shove it off to the left.
+    		this.hiddenTextarea.style.cssText = 'position: absolute; top: ' + y + 'px; left: -9999px;';    	
+    	}
+		else {
+    		//Other places we can try to hide the text area in the correct location; that way the keyboard scrolls the text being editing into view.
+			//(works for non-rotated text anyways...)
+			this.hiddenTextarea.style.cssText = 'position: absolute; top: ' + y + 'px; left: ' + x + 'px; padding: 0px; border:none; outline:none; cursor:none; resize:none; color:transparent; z-index:-1000; filter:alpha(opacity=0); opacity: 0';
+		}
+	}
+	
+        
     fabric.document.body.appendChild(this.hiddenTextarea);
 
 
-	if (navigator && navigator.userAgent.indexOf('Chrome') !== -1 && navigator.userAgent.indexOf('Android') !== -1) {
+	if (looksLikeAndroidChrome) {
 		//EKH
 		//Chome on android sucks in one specific way (well, several).
 		//NO keypress event in sight. keydown/keyup events - keyCode = 0 sometimes!		

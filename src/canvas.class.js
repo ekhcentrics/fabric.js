@@ -786,6 +786,24 @@
       var target,
           pointer = this.getPointer(e);
 
+<<<<<<< HEAD
+=======
+    	/*
+This change makes it so that if you select an object, you can NEVER select an object on top of it.
+Commenting out this section for now.
+
+searchPossibleTargets regression #1188
+https://github.com/kangax/fabric.js/issues/1188
+older, working: http://jsfiddle.net/fotoguy42/96JNh/1/
+newer, busted: http://jsfiddle.net/fotoguy42/R5dpN/1/
+  
+      if (this._activeObject && this._checkTarget(e, this._activeObject, pointer)) {
+        this.relatedTarget = this._activeObject;
+        return this._activeObject;
+      }
+	  */
+
+>>>>>>> revert _searchPossibleTargets closer to main implementation, still leaving active object shortcut(bug) commented out
       var i = this._objects.length;
 
       while (i--) {
