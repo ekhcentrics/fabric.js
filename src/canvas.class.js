@@ -782,34 +782,30 @@
     _searchPossibleTargets: function(e) {
 
       // Cache all targets where their bounding box contains point.
-      var possibleTargets = [],
-          target,
+      var target,
           pointer = this.getPointer(e);
 
-      for (var i = this._objects.length; i--; ) {
-        if (this._objects[i] &&
-            this._objects[i].visible &&
-            this._objects[i].evented &&
-            this.containsPoint(e, this._objects[i])) {
+    	/*
+This change makes it so that if you select an object, you can NEVER select an object on top of it.
+Commenting out this section for now.
 
-          if (this.perPixelTargetFind || this._objects[i].perPixelTargetFind) {
-            possibleTargets[possibleTargets.length] = this._objects[i];
-          }
-          else {
-            target = this._objects[i];
-            this.relatedTarget = target;
-            break;
-          }
-        }
+searchPossibleTargets regression #1188
+https://github.com/kangax/fabric.js/issues/1188
+older, working: http://jsfiddle.net/fotoguy42/96JNh/1/
+newer, busted: http://jsfiddle.net/fotoguy42/R5dpN/1/
+  
+      if (this._activeObject && this._checkTarget(e, this._activeObject, pointer)) {
+        this.relatedTarget = this._activeObject;
+        return this._activeObject;
       }
+	  */
 
-      for (var j = 0, len = possibleTargets.length; j < len; j++) {
-        pointer = this.getPointer(e);
-        var isTransparent = this.isTargetTransparent(possibleTargets[j], pointer.x, pointer.y);
-        if (!isTransparent) {
-          target = possibleTargets[j];
-          this.relatedTarget = target;
+      var i = this._objects.length;
 
+      while (i--) {
+        if (this._checkTarget(e, this._objects[i], pointer)){
+          this.relatedTarget = this._objects[i];
+          target = this._objects[i];
           break;
         }
       }
