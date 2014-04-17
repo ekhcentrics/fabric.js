@@ -112,6 +112,9 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
   initMousemoveHandler: function() {
     this.on('mousemove', function(options) {
       if (!this.__isMousedown || !this.isEditing) return;
+	  
+      //EKH - for reasons I do not yet comprehend, we are getting a mousemove event, even through we have not moved.
+      if (!this._isObjectMoved(options.e)) return;
 
       var newSelectionStart = this.getSelectionStartFromPointer(options.e);
 
@@ -203,8 +206,7 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
         prevWidth = 0,
         width = 0,
         height = 0,
-        charIndex = 0,
-        newSelectionStart;
+        charIndex = 0;
 
     for (var i = 0, len = textLines.length; i < len; i++) {
 
@@ -237,16 +239,19 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
           mouseOffset, prevWidth, width, charIndex + i, jlen);
       }
 
-       if (mouseOffset.y < height) {
+      if (mouseOffset.y < height) {
+        //EKH - if this is the last line, then we want the cursor after the last character.
+        if (i === textLines.length - 1) {
+          return this.text.length;
+        }
           return this._getNewSelectionStartFromOffset(
             mouseOffset, prevWidth, width, charIndex + i, jlen, j);
        }
+
     }
 
     // clicked somewhere after all chars, so set at the end
-    if (typeof newSelectionStart === 'undefined') {
-      return this.text.length;
-    }
+    return this.text.length;
   },
 
   /**
