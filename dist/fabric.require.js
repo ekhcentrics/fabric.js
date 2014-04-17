@@ -7706,9 +7706,10 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
 
       target.hasBorders = hasBorders;
       target.transparentCorners = transparentCorners;
+      var tolerance = target.targetFindTolerance !== undefined ? target.targetFindTolerance : this.targetFindTolerance;
 
       var isTransparent = fabric.util.isTransparent(
-        this.contextCache, x, y, this.targetFindTolerance);
+        this.contextCache, x, y, tolerance);
 
       this.clearContext(this.contextCache);
 
@@ -20297,6 +20298,10 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
     this.on('mousedown', function(options) {
 
       var pointer = this.canvas.getPointer(options.e);
+	  
+	  //EKH - to know if we really moved, we want to store the NODE coordinates, not where the mouse is.. we could be clicking the node in different spots, not moving it.
+      this._mouseDownTop = this.top;
+      this._mouseDownLeft = this.left;
 
       this.__mousedownX = pointer.x;
       this.__mousedownY = pointer.y;
@@ -20359,9 +20364,15 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
     var x, y;
     this.on('mouseup', function(options) {
       this.__isMousedown = false;
-      if (this._isObjectMoved(options.e)) return;
 
-      if (this.selected) {
+      //Did we move the NODE? (note that this is a different answer than the _.isObjectMoved - it is just 
+      //looking at the different mouse down corrdinates, not if the node moved.	  
+      if (this._mouseDownTop !== this.top && this._mouseDownLeft !== this.left) {
+         return;
+      }
+
+
+      if (this.selected && !this.isEditing) {
 	    //EKH - pass through x/y data so we can place the text area in the correct place to popup the keyboard
 		x = options.e.pageX;
 		y = options.e.pageY;
