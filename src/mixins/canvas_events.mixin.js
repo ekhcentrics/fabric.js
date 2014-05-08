@@ -619,17 +619,25 @@
     /**
      * @private
      */
-    _onScale: function(e, transform, x, y) {
+    _onScale: function (e, transform, x, y) {
+      //EKH 18991  :  html5 - image node corner handles should scale w/ locked aspect (to match flash wizard) - added 'lockUniScalingOnCorners'
+    	var target = transform.target,
+          whichHandle = target.__corner,
+          isCorner = (whichHandle === "tr" || whichHandle === "tl" || whichHandle === "br" || whichHandle === "bl"),
+          lockUniScalingOnCorners = target.get('lockUniScalingOnCorners'),
+          shouldScaleEqualy = false;
+      
+      
       // rotate object only if shift key is not pressed
       // and if it is not a group we are transforming
-      if ((e.shiftKey || this.uniScaleTransform) && !transform.target.get('lockUniScaling')) {
+      if (!(isCorner && lockUniScalingOnCorners) && (e.shiftKey || this.uniScaleTransform) && !target.get('lockUniScaling')) {
         transform.currentAction = 'scale';
         this._scaleObject(x, y);
       }
       else {
         // Switch from a normal resize to proportional
         if (!transform.reset && transform.currentAction === 'scale') {
-          this._resetCurrentTransform(e, transform.target);
+          this._resetCurrentTransform(e, target);
         }
 
         transform.currentAction = 'scaleEqually';

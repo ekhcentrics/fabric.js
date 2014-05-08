@@ -658,6 +658,14 @@
      */
     lockUniScaling:           false,
 
+
+    /**
+     * When `true`, object non-uniform scaling is locked when you use one of the corners (tl, tr, bl, br)
+     * @type Boolean
+     * @default
+     */
+    lockUniScalingOnCorners:           false,
+
     /**
      * List of properties to consider when checking if state
      * of an object is changed (fabric.Object#hasStateChanged)
