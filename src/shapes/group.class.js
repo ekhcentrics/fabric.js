@@ -21,7 +21,8 @@
     lockRotation:   true,
     lockScalingX:   true,
     lockScalingY:   true,
-    lockUniScaling: true
+    lockUniScaling: true,
+    lockUniScalingOnCorners: true
   };
 
   /**
