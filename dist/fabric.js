@@ -1,7 +1,7 @@
 /* build: `node build.js modules=ALL exclude=serialization,parser,easing,node,freedrawing,cufon minifier=uglifyjs` */
 /*! Fabric.js Copyright 2008-2014, Printio (Juriy Zaytsev, Maxim Chernyak) */
 
-var fabric = fabric || { version: "1.4.4" };
+var fabric = fabric || { version: "1.4.5" };
 if (typeof exports !== 'undefined') {
   exports.fabric = fabric;
 }
@@ -37,6 +37,7 @@ fabric.isLikelyNode = typeof Buffer !== 'undefined' &&
  * @type array
  */
 fabric.SHARED_ATTRIBUTES = [
+  "display",
   "transform",
   "fill", "fill-opacity", "fill-rule",
   "opacity",
@@ -5049,6 +5050,11 @@ if (typeof console !== 'undefined') {
         color = Color.colorNameMap[color];
       }
 
+      if (color === 'transparent') {
+        this.setSource([255,255,255,0]);
+        return;
+      }
+
       source = Color.sourceFromHex(color);
 
       if (!source) {
@@ -8198,21 +8204,6 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
       var target,
           pointer = this.getPointer(e);
 
-    	/*
-This change makes it so that if you select an object, you can NEVER select an object on top of it.
-Commenting out this section for now.
-
-searchPossibleTargets regression #1188
-https://github.com/kangax/fabric.js/issues/1188
-older, working: http://jsfiddle.net/fotoguy42/96JNh/1/
-newer, busted: http://jsfiddle.net/fotoguy42/R5dpN/1/
-  
-      if (this._activeObject && this._checkTarget(e, this._activeObject, pointer)) {
-        this.relatedTarget = this._activeObject;
-        return this._activeObject;
-      }
-	  */
-
       var i = this._objects.length;
 
       while (i--) {
@@ -10834,7 +10825,12 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
           -this.width / 2 + this.fill.offsetX || 0,
           -this.height / 2 + this.fill.offsetY || 0);
       }
-      ctx.fill();
+      if (this.fillRule === 'destination-over') {
+        ctx.fill('evenodd');
+      }
+      else {
+        ctx.fill();
+      }
       if (this.fill.toLive) {
         ctx.restore();
       }
@@ -12448,7 +12444,7 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
           top + height + scaleOffsetSizeY + strokeWidth2 + paddingY);
 
         // middle-right
-        this._drawControl('mb', ctx, methodName,
+        this._drawControl('mr', ctx, methodName,
           left + width + scaleOffsetSizeX + strokeWidth2 + paddingX,
           top + height/2 - scaleOffsetY);
 
@@ -13625,14 +13621,15 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
         return;
       }
 
-      var rx = this.rx || 0,
-          ry = this.ry || 0,
+      var rx = this.rx ? Math.min(this.rx, this.width / 2) : 0,
+          ry = this.ry ? Math.min(this.ry, this.height / 2) : 0,
           w = this.width,
           h = this.height,
           x = -w / 2,
           y = -h / 2,
           isInPathGroup = this.group && this.group.type === 'path-group',
-          isRounded = rx !== 0 || ry !== 0;
+          isRounded = rx !== 0 || ry !== 0,
+          k = 1 - 0.5522847498 /* "magic number" for bezier approximations of arcs (http://itc.ktu.lt/itc354/Riskus354.pdf) */;
 
       ctx.beginPath();
       ctx.globalAlpha = isInPathGroup ? (ctx.globalAlpha * this.opacity) : this.opacity;
@@ -13651,16 +13648,16 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
       ctx.moveTo(x + rx, y);
 
       ctx.lineTo(x + w - rx, y);
-      isRounded && ctx.quadraticCurveTo(x + w, y, x + w, y + ry, x + w, y + ry);
+      isRounded && ctx.bezierCurveTo(x + w - k * rx, y, x + w, y + k * ry, x + w, y + ry);
 
       ctx.lineTo(x + w, y + h - ry);
-      isRounded && ctx.quadraticCurveTo(x + w, y + h, x + w - rx, y + h, x + w - rx, y + h);
+      isRounded && ctx.bezierCurveTo(x + w, y + h - k * ry, x + w - k * rx, y + h, x + w - rx, y + h);
 
       ctx.lineTo(x + rx, y + h);
-      isRounded && ctx.quadraticCurveTo(x, y + h, x, y + h - ry, x, y + h - ry);
+      isRounded && ctx.bezierCurveTo(x + k * rx, y + h, x, y + h - k * ry, x, y + h - ry);
 
       ctx.lineTo(x, y + ry);
-      isRounded && ctx.quadraticCurveTo(x, y, x + rx, y, x + rx, y);
+      isRounded && ctx.bezierCurveTo(x, y + k * ry, x + k * rx, y, x + rx, y);
 
       ctx.closePath();
 
@@ -14884,6 +14881,14 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
       }
 
       this.setOptions(options);
+
+      if (options.widthAttr) {
+        this.scaleX = options.widthAttr / options.width;
+      }
+      if (options.heightAttr) {
+        this.scaleY = options.heightAttr / options.height;
+      }
+
       this.setCoords();
 
       if (options.sourcePath) {
@@ -15007,9 +15012,9 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
      * @return {Boolean} true if all paths are of the same color (`fill`)
      */
     isSameColor: function() {
-      var firstPathFill = this.getObjects()[0].get('fill');
+      var firstPathFill = (this.getObjects()[0].get('fill') || '').toLowerCase();
       return this.getObjects().every(function(path) {
-        return path.get('fill') === firstPathFill;
+        return (path.get('fill') || '').toLowerCase() === firstPathFill;
       });
     },
 
@@ -15750,13 +15755,16 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
 
       // this._resetWidthHeight();
       if (isInPathGroup) {
-        ctx.translate(-this.group.width/2 + this.width/2, -this.group.height/2 + this.height/2);
+        ctx.translate(-this.group.width/2, -this.group.height/2);
       }
       if (m) {
         ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
       }
       if (!noTransform) {
         this.transform(ctx);
+      }
+      if (isInPathGroup) {
+        ctx.translate(this.width/2, this.height/2);
       }
 
       ctx.save();
@@ -15996,7 +16004,7 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
       options || (options = { });
       this.setOptions(options);
       this._setWidthHeight(options);
-      if (this._element) {
+      if (this._element && this.crossOrigin) {
         this._element.crossOrigin = this.crossOrigin;
       }
     },
@@ -17348,6 +17356,100 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
 
   'use strict';
 
+  var fabric  = global.fabric || (global.fabric = { }),
+      extend = fabric.util.object.extend;
+
+  /**
+   * Multiply filter class
+   * Adapted from <a href="http://www.laurenscorijn.com/articles/colormath-basics">http://www.laurenscorijn.com/articles/colormath-basics</a>
+   * @class fabric.Image.filters.Multiply
+   * @memberOf fabric.Image.filters
+   * @extends fabric.Image.filters.BaseFilter
+   * @example <caption>Multiply filter with hex color</caption>
+   * var filter = new fabric.Image.filters.Multiply({
+   *   color: '#F0F'
+   * });
+   * object.filters.push(filter);
+   * object.applyFilters(canvas.renderAll.bind(canvas));
+   * @example <caption>Multiply filter with rgb color</caption>
+   * var filter = new fabric.Image.filters.Multiply({
+   *   color: 'rgb(53, 21, 176)'
+   * });
+   * object.filters.push(filter);
+   * object.applyFilters(canvas.renderAll.bind(canvas));
+   */
+  fabric.Image.filters.Multiply = fabric.util.createClass(fabric.Image.filters.BaseFilter, /** @lends fabric.Image.filters.Multiply.prototype */ {
+
+    /**
+     * Filter type
+     * @param {String} type
+     * @default
+     */
+    type: 'Multiply',
+
+    /**
+     * Constructor
+     * @memberOf fabric.Image.filters.Multiply.prototype
+     * @param {Object} [options] Options object
+     * @param {String} [options.color=#000000] Color to multiply the image pixels with
+     */
+    initialize: function(options) {
+      options = options || { };
+
+      this.color = options.color || '#000000';
+    },
+
+    /**
+     * Applies filter to canvas element
+     * @param {Object} canvasEl Canvas element to apply filter to
+     */
+    applyTo: function(canvasEl) {
+      var context = canvasEl.getContext('2d'),
+          imageData = context.getImageData(0, 0, canvasEl.width, canvasEl.height),
+          data = imageData.data,
+          iLen = data.length, i,
+          source;
+
+      source = new fabric.Color(this.color).getSource();
+
+      for (i = 0; i < iLen; i+=4) {
+        data[i] *= source[0]/255;
+        data[i + 1] *= source[1]/255;
+        data[i + 2] *= source[2]/255;
+        
+      }
+
+      context.putImageData(imageData, 0, 0);
+    },
+
+    /**
+     * Returns object representation of an instance
+     * @return {Object} Object representation of an instance
+     */
+    toObject: function() {
+      return extend(this.callSuper('toObject'), {
+        color: this.color
+      });
+    }
+  });
+
+  /**
+   * Returns filter instance from an object representation
+   * @static
+   * @param {Object} object Object to create an instance from
+   * @return {fabric.Image.filters.Multiply} Instance of fabric.Image.filters.Multiply
+   */
+  fabric.Image.filters.Multiply.fromObject = function(object) {
+    return new fabric.Image.filters.Multiply(object);
+  };
+
+})(typeof exports !== 'undefined' ? exports : this);
+
+
+(function(global) {
+
+  'use strict';
+
   var fabric = global.fabric || (global.fabric = { }),
       extend = fabric.util.object.extend,
       clone = fabric.util.object.clone,
@@ -18114,8 +18216,8 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
 
       ctx.save();
       var m = this.transformMatrix;
-      if (m && !this.group) {
-        ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      if (m && (!this.group || this.group.type === 'path-group')) {
+        ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
       }
       this._render(ctx);
       if (!noTransform && this.active) {

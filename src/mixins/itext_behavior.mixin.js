@@ -302,14 +302,15 @@
      * @return {fabric.IText} thisArg
      * @chainable
      */
-    enterEditing: function() {
+    enterEditing: function(x, y) {
       if (this.isEditing || !this.editable) return;
 
       this.exitEditingOnOthers();
 
       this.isEditing = true;
 
-      this.initHiddenTextarea();
+	  //EKH - pass through x,y
+      this.initHiddenTextarea(x, y);
       this._updateTextarea();
       this._saveEditingProps();
       this._setEditingProps();
