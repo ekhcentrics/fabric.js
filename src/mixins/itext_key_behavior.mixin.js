@@ -216,12 +216,14 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
       return;
     }
 
-	//EKH - for android/chrome algorith, I need the carriage return in the textbox, does not appear to break other browsers that I see, may need to be conditional on that particular user agent
-	if(e.keyCode !== 13) {
-		e.preventDefault();
-		e.stopPropagation();
-	}
-
+    //EKH - for android/chrome algorith, I need the carriage return in the textbox, 
+    //      does not appear to break other browsers that I see, may need to be 
+    //      conditional on that particular user agent
+    //JTK - Have to not stop key combos with ctrl/cmd otherwise copy and paste do not work
+    if (e.keyCode !== 13 && !(e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
     this.canvas && this.canvas.renderAll();
   },
