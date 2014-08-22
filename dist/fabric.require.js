@@ -4350,8 +4350,13 @@ fabric.Pattern = fabric.util.createClass({
             }
         },
         _checkTarget: function(e, obj, pointer) {
+            var perPixelTargetFind;
             if (obj && obj.visible && obj.evented && this.containsPoint(e, obj)) {
-                if ((this.perPixelTargetFind || obj.perPixelTargetFind) && !obj.isEditing) {
+                perPixelTargetFind = this.perPixelTargetFind;
+                if (obj.hasOwnProperty("perPixelTargetFind")) {
+                    perPixelTargetFind = obj.perPixelTargetFind;
+                }
+                if (perPixelTargetFind && !obj.isEditing) {
                     var isTransparent = this.isTargetTransparent(obj, pointer.x, pointer.y);
                     if (!isTransparent) {
                         return true;
