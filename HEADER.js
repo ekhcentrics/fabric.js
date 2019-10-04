@@ -21,7 +21,9 @@ else {
  * True when in environment that supports touch events
  * @type boolean
  */
-fabric.isTouchSupported = "ontouchstart" in fabric.document.documentElement;
+//EKH - update check
+fabric.isTouchSupported = 'ontouchstart' in fabric.document.documentElement || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+
 
 /**
  * True when in environment that's probably Node.js

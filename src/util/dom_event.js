@@ -192,12 +192,25 @@
     // looks like in IE (<9) clientX at certain point (apparently when mouseup fires on VML element)
     // is represented as COM object, with all the consequences, like "unknown" type and error on [[Get]]
     // need to investigate later
-    return (typeof event.clientX !== unknown ? event.clientX : 0);
+	  if (typeof event.clientX !== unknown && typeof event.clientX !== "undefined")
+		  return event.clientX;
+
+	  if ((event.type === "touchstart" || event.type === "touchmove") && event.touches && event.touches.length) {
+      return event.touches[0].clientX;
+    }
+	  return 0;
   },
 
   pointerY = function(event) {
-    return (typeof event.clientY !== unknown ? event.clientY : 0);
+	  if (typeof event.clientY !== unknown && typeof event.clientY !== "undefined")
+		  return event.clientY;
+
+	  if ((event.type === "touchstart" || event.type === "touchmove") && event.touches && event.touches.length) {
+		  return event.touches[0].clientY;
+	  }
+	  return 0;
   };
+
 
   function _getPointer(event, pageProp, clientProp) {
     var touchProp = event.type === 'touchend' ? 'changedTouches' : 'touches';

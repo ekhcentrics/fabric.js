@@ -14,7 +14,7 @@ if (typeof document !== "undefined" && typeof window !== "undefined") {
     fabric.window = fabric.document.createWindow();
 }
 
-fabric.isTouchSupported = "ontouchstart" in fabric.document.documentElement;
+fabric.isTouchSupported = "ontouchstart" in fabric.document.documentElement || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
 
 fabric.isLikelyNode = typeof Buffer !== "undefined" && typeof window === "undefined";
 
@@ -109,7 +109,7 @@ if (typeof JSON !== "object") {
         escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
         meta = {
             "\b": "\\b",
-            "	": "\\t",
+            "\t": "\\t",
             "\n": "\\n",
             "\f": "\\f",
             "\r": "\\r",
@@ -2443,9 +2443,17 @@ fabric.Collection = {
         };
     }
     var pointerX = function(event) {
-        return typeof event.clientX !== unknown ? event.clientX : 0;
+        if (typeof event.clientX !== unknown && typeof event.clientX !== "undefined") return event.clientX;
+        if ((event.type === "touchstart" || event.type === "touchmove") && event.touches && event.touches.length) {
+            return event.touches[0].clientX;
+        }
+        return 0;
     }, pointerY = function(event) {
-        return typeof event.clientY !== unknown ? event.clientY : 0;
+        if (typeof event.clientY !== unknown && typeof event.clientY !== "undefined") return event.clientY;
+        if ((event.type === "touchstart" || event.type === "touchmove") && event.touches && event.touches.length) {
+            return event.touches[0].clientY;
+        }
+        return 0;
     };
     function _getPointer(event, pageProp, clientProp) {
         var touchProp = event.type === "touchend" ? "changedTouches" : "touches";
@@ -4413,7 +4421,7 @@ fabric.Pattern = fabric.util.createClass({
         },
         _initWrapperElement: function() {
             this.wrapperEl = fabric.util.wrapElement(this.lowerCanvasEl, "div", {
-                "class": this.containerClass
+                class: this.containerClass
             });
             fabric.util.setStyle(this.wrapperEl, {
                 width: this.getWidth() + "px",
