@@ -1,4 +1,4 @@
-/* build: `node build.js modules=ALL exclude=serialization,parser,easing,node,freedrawing,cufon minifier=uglifyjs` */
+/* build: `node build.js modules=ALL exclude=,serialization,parser,easing,node,freedrawing,cufon minifier=uglifyjs` */
 /*! Fabric.js Copyright 2008-2014, Printio (Juriy Zaytsev, Maxim Chernyak) */
 
 var fabric = fabric || { version: "1.4.5" };
@@ -19693,6 +19693,10 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
 
         var _this = this;
         setTimeout(function() {
+          if(_this.__isMousedown) {
+            console.log('deferred selected event handling - __isMousedown == true, skipping setting selected.');
+            return;
+          }
           _this.selected = true;
         }, 100);
 

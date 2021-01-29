@@ -20,6 +20,10 @@
 
         var _this = this;
         setTimeout(function() {
+          if(_this.__isMousedown) {
+            console.log('deferred selected event handling - __isMousedown == true, skipping setting selected.');
+            return;
+          }
           _this.selected = true;
         }, 100);
 

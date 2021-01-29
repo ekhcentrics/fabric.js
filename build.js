@@ -303,9 +303,11 @@ else {
         console.log('Built distribution to ' + distributionPath + 'fabric.js');
       }
 
-      exec(mininfierCmd, function (error, output) {
+      exec(mininfierCmd, function (error, output, stderror) {
         if (error) {
           console.error('Minification failed using', minifier, 'with', mininfierCmd);
+          console.log(output);
+          console.log(stderror);
           process.exit(1);
         }
         console.log('Minified using', minifier, 'to ' + distributionPath + 'fabric.min.js');
