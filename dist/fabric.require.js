@@ -1,4 +1,4 @@
-/* build: `node build.js modules=ALL exclude=,serialization,parser,easing,node,freedrawing,cufon minifier=uglifyjs` */
+/* build: `node build.js modules=ALL exclude=serialization,parser,easing,node,freedrawing,cufon minifier=uglifyjs` */
 /*! Fabric.js Copyright 2008-2014, Printio (Juriy Zaytsev, Maxim Chernyak) */
 
 var fabric = fabric || { version: "1.4.5" };
@@ -20446,9 +20446,12 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
 
       var pointer = this.canvas.getPointer(options.e);
 	  
-	  //EKH - to know if we really moved, we want to store the NODE coordinates, not where the mouse is.. we could be clicking the node in different spots, not moving it.
+      //EKH - to know if we really moved, we want to store the NODE coordinates, not where the mouse is.. we could be clicking the node in different spots, not moving it.
       this._mouseDownTop = this.top;
       this._mouseDownLeft = this.left;
+      //EKH - we also want to know the dimensions when we started
+      this._mouseDownWidth = this.getWidth();
+      this._mouseDownHeight = this.getHeight();
 
       this.__mousedownX = pointer.x;
       this.__mousedownY = pointer.y;
@@ -20512,23 +20515,31 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
     this.on('mouseup', function(options) {
       this.__isMousedown = false;
 
-      //Did we move the NODE? (note that this is a different answer than the _.isObjectMoved - it is just 
-      //looking at the different mouse down corrdinates, not if the node moved.	  
-      if (this._mouseDownTop !== this.top && this._mouseDownLeft !== this.left) {
+      // Did we move the NODE? (note that this is a different answer than the _.isObjectMoved - it is just 
+      // looking at the different mouse down corrdinates, not if the node moved.	  
+      if (this._mouseDownTop !== this.top || this._mouseDownLeft !== this.left) {
+        this.selected = true;
          return;
       }
 
+      // Did we re-size the NODE?  If os, we do not want to enter selection mode
+      var currentWidth = this.getWidth();
+      var currentHeight = this.getHeight();
+      if (currentWidth !== this._mouseDownWidth || currentHeight !== this._mouseDownHeight) {
+        this.selected = true;
+        return;
+      }            
 
       if (this.selected && !this.isEditing) {
-	    //EKH - pass through x/y data so we can place the text area in the correct place to popup the keyboard
-		x = options.e.pageX;
-		y = options.e.pageY;
-		
-		//if its a touch event..
-		if (options.e.changedTouches && options.e.changedTouches.length > 0) {
-			x = options.e.changedTouches[0].pageX;
-			y = options.e.changedTouches[0].pageY;
-		}
+	      //EKH - pass through x/y data so we can place the text area in the correct place to popup the keyboard
+        x = options.e.pageX;
+        y = options.e.pageY;
+        
+        //if its a touch event..
+        if (options.e.changedTouches && options.e.changedTouches.length > 0) {
+          x = options.e.changedTouches[0].pageX;
+          y = options.e.changedTouches[0].pageY;
+        }
         this.enterEditing(x, y);
 
         this.initDelayedCursor(true);
